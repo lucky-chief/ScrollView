@@ -6,7 +6,7 @@ using System;
 public class MYScrollViewContent : MonoBehaviour
 {
 
-    public delegate void MYScrollViewItem ( GameObject item, int dataIndex );
+    public delegate void MYScrollViewItem(GameObject item, int dataIndex);
     public event MYScrollViewItem renderItem;
 
     [SerializeField]
@@ -33,12 +33,11 @@ public class MYScrollViewContent : MonoBehaviour
     int dataRenderedIdxDown;
     Vector2 viewSize;
     bool mStopPosCaled = false;
+    bool mLastCalStopPosDirUp = false;
 
-    List<GameObject> cacheUp = new List<GameObject>();
-    List<GameObject> cacheDown = new List<GameObject>();
     List<GameObject> renderedItems = new List<GameObject>();
 
-    void Awake ()
+    void Awake()
     {
         mStopPos = transform.localPosition;
         mSpringPanel = GetComponent<SpringPanel>();
@@ -46,13 +45,13 @@ public class MYScrollViewContent : MonoBehaviour
         mBounds = NGUIMath.CalculateAbsoluteWidgetBounds(transform);
     }
 
-    void Start ()
+    void Start()
     {
         mSpringPanel.onMoving += OnMoving;
         mSpringPanel.onFinished += OnFinish;
     }
 
-    void OnDestroy ()
+    void OnDestroy()
     {
         mSpringPanel.onMoving -= OnMoving;
         mSpringPanel.onFinished -= OnFinish;
@@ -96,34 +95,39 @@ public class MYScrollViewContent : MonoBehaviour
         }
     }
 
-    public void Render ()
+    public bool PullingBack
     {
-        int idx = 0;
-        int dataIdx = renderIndex;
-        dataRenderedIdxUp = renderIndex;
+        get { return mPullBack; }
+        set { mPullBack = value; }
+    }
+
+    public void Render()
+    {
+        dataRenderedIdxUp = -1;
         dataRenderedIdxDown = renderIndex;
         while (true)
         {
             if (equalSize)
             {
-                int nowPos = -idx * (size + gap);
+                int nowPos = -dataRenderedIdxDown * (size + gap);
                 if (Mathf.Abs(nowPos) >= scrollView.Panel.GetViewSize().y)
                 {
-                    if (dataIdx < DataSourceCount)
+                    if (dataRenderedIdxDown < DataSourceCount)
                     {
                         mStopPos = transform.localPosition;
-                        if (dataRenderedIdxUp > 0)
-                        {
-                            GameObject cacheItem = NewItem(scrollView.gameObject, Vector3.one * -10000);
-                            cacheUp.Add(cacheItem);
-                            ItemRenderCallback(cacheItem, dataRenderedIdxUp - 1);
-                        }
+                        //if (dataRenderedIdxUp > 0)
+                        //{
+                        //    GameObject cacheItem = NewItem(scrollView.gameObject, Vector3.one * -10000);
+                        //    ItemRenderCallback(cacheItem, dataRenderedIdxUp - 1);
+                        //}
 
                         if (dataRenderedIdxDown < dataSourceCount - 1)
                         {
-                            GameObject cacheItem = NewItem(gameObject, new Vector3(0, -dataRenderedIdxDown * (size + gap), 0));
-                            renderedItems.Add(cacheItem);
-                            ItemRenderCallback(cacheItem, dataRenderedIdxDown);
+                            GameObject item = NewItem(gameObject, new Vector3(0, -dataRenderedIdxDown * (size + gap), 0));
+                            renderedItems.Add(item);
+                            item.name = dataRenderedIdxDown.ToString();
+                            ItemRenderCallback(item, dataRenderedIdxDown);
+                            dataRenderedIdxDown++;
                         }
                         return;
                     }
@@ -133,10 +137,8 @@ public class MYScrollViewContent : MonoBehaviour
                 {
                     GameObject item = NewItem(gameObject, new Vector3(0, nowPos, 0));
                     renderedItems.Add(item);
-                    ItemRenderCallback(item, dataIdx);
-
-                    idx++;
-                    dataIdx++;
+                    item.name = dataRenderedIdxDown.ToString();
+                    ItemRenderCallback(item, dataRenderedIdxDown);
                     dataRenderedIdxDown++;
                 }
             }
@@ -147,26 +149,32 @@ public class MYScrollViewContent : MonoBehaviour
         }
     }
 
-    public void PullBack ( bool moveUp = true )
+    public void PullBack(bool moveUp = true)
     {
         if (mPullBack) return;
         mPullBack = true;
-        SpringPanel.Begin(gameObject, mStopPos, 13f).strength = 25f;
+        SpringPanel.Begin(gameObject, mStopPos, 13f).strength = 8f;
     }
 
-    public void UpdateStopPosition()
+    public void UpdateStopPosition(bool moveUpOrLeft = true)
     {
-        if (mStopPosCaled) return;
-        GameObject item = renderedItems[renderedItems.Count - 1];
+        if (mStopPosCaled && moveUpOrLeft == mLastCalStopPosDirUp) return;
+        GameObject item = moveUpOrLeft
+                          ? renderedItems[renderedItems.Count - 1]
+                          : renderedItems[0];
+        Debug.Log("item-name: " + item.name);
         Bounds b = NGUIMath.CalculateRelativeWidgetBounds(scrollView.transform, item.transform);
         float H = scrollView.Panel.GetViewSize().y * 0.5f;
         float h = b.extents.y;
-        float y = scrollView.Panel.clipOffset.y + h - H;
-        float deltaY = y - b.center.y;
-        Vector3 pos = transform.localPosition + new Vector3(0, deltaY, 0);
-        //pos.x = Mathf.Ceil(pos.x);
-        //pos.y = Mathf.Ceil(pos.y);
+        float y = moveUpOrLeft
+                  ? scrollView.Panel.clipOffset.y + h - H
+                  : scrollView.Panel.clipOffset.y - h + H;
+        float deltaY = moveUpOrLeft ? y - b.center.y : b.center.y - y;
+        Vector3 pos = moveUpOrLeft 
+                      ? transform.localPosition + new Vector3(0, deltaY, 0)
+                      : transform.localPosition - new Vector3(0, deltaY, 0);
         mStopPosCaled = true;
+        mLastCalStopPosDirUp = moveUpOrLeft;
         mStopPos = pos;
         //Debug.Log("======H======: " + H);
         //Debug.Log("======h======: " + h);
@@ -176,7 +184,7 @@ public class MYScrollViewContent : MonoBehaviour
         //Debug.Log("======mStopPos======: " + mStopPos);
     }
 
-    void OnMoving ( bool moveUp )
+    void OnMoving(bool moveUpOrLeft)
     {
         if (mPullBack) return;
         if (equalSize)
@@ -186,9 +194,9 @@ public class MYScrollViewContent : MonoBehaviour
                 Transform trans = renderedItems[i].transform;
                 Vector3 worldP = transform.TransformPoint(trans.localPosition);
                 Vector3 localP = scrollView.transform.parent.InverseTransformPoint(worldP);
-                if (moveUp)
+                if (moveUpOrLeft)
                 {
-                    if (localP.y - size > viewSize.y * 0.5f + scrollView.transform.localPosition.y)
+                    if (localP.y - size > viewSize.y * 0.5f + scrollView.Panel.clipOffset.y + scrollView.transform.localPosition.y)
                     {
                         Debug.Log("=============111: " + dataRenderedIdxDown);
                         if (dataRenderedIdxDown < dataSourceCount)
@@ -196,43 +204,45 @@ public class MYScrollViewContent : MonoBehaviour
                             GameObject item = renderedItems[0];
                             renderedItems.RemoveAt(0);
                             renderedItems.Add(item);
-                            if (dataRenderedIdxDown < dataSourceCount)
+                            trans.localPosition = new Vector3(0, -dataRenderedIdxDown * (size + gap), 0);
+                            trans.gameObject.name = dataRenderedIdxDown + "";
+                            if (dataRenderedIdxDown == dataSourceCount - 1)
                             {
-                                trans.localPosition = new Vector3(0, -dataRenderedIdxDown * (size + gap), 0);
-                                trans.gameObject.name = dataRenderedIdxDown + "";
-                                if (dataRenderedIdxDown >= dataSourceCount - 1)
-                                {
-                                    UpdateStopPosition();
-                                    PullBack(true);
-                                    return;
-                                }
-                                dataRenderedIdxDown++;
-                                dataRenderedIdxUp++;
-                                if (null != renderItem)
-                                    renderItem(trans.gameObject, dataRenderedIdxDown);
+                                UpdateStopPosition();
+                                PullBack(true);
+                               // return;
                             }
+                            dataRenderedIdxDown++;
+                            dataRenderedIdxUp++;
+                            if (null != renderItem)
+                                renderItem(trans.gameObject, dataRenderedIdxDown);
                         }
                         break;
                     }
                 }
                 else
                 {
-                    if (localP.y - gap > -viewSize.y * 0.5f + scrollView.transform.localPosition.y)
+                    if (localP.y < -viewSize.y * 0.5f + scrollView.Panel.clipOffset.y + scrollView.transform.localPosition.y)
                     {
-                        if (cacheUp.Count > 0)
+                        Debug.Log("============dataRenderedIdxUp: " + dataRenderedIdxUp);
+                        if (dataRenderedIdxUp >= 0)
                         {
-                            GameObject item = cacheUp[0];
-                            item.transform.SetParent(transform);
-                            item.transform.localPosition = new Vector3(0, dataRenderedIdxUp * (size + gap), 0);
-                            cacheUp.RemoveAt(0);
-                            if (dataRenderedIdxUp > 0)
+                            int renderedCount = renderedItems.Count;
+                            GameObject item = renderedItems[renderedCount - 1];
+                            renderedItems.RemoveAt(renderedCount - 1);
+                            renderedItems.Insert(0, item);
+                            trans.localPosition = new Vector3(0, -dataRenderedIdxUp * (size + gap), 0);
+                            trans.gameObject.name = dataRenderedIdxUp + "";
+                            if (dataRenderedIdxUp == 0)
                             {
-                                dataRenderedIdxDown--;
-                                dataRenderedIdxUp--;
-                                cacheUp.Add(trans.gameObject);
-                                if (null != renderItem)
-                                    renderItem(item, dataRenderedIdxUp);
+                                UpdateStopPosition(false);
+                                PullBack(false);
+                              //  return;
                             }
+                            dataRenderedIdxDown--;
+                            dataRenderedIdxUp--;
+                            if (null != renderItem)
+                                renderItem(trans.gameObject, dataRenderedIdxUp);
                         }
                         break;
                     }
@@ -241,7 +251,7 @@ public class MYScrollViewContent : MonoBehaviour
         }
     }
 
-    void OnFinish ()
+    void OnFinish()
     {
         if (mPullBack)
         {
@@ -250,7 +260,7 @@ public class MYScrollViewContent : MonoBehaviour
         }
     }
 
-    GameObject NewItem ( GameObject parent, Vector3 pos )
+    GameObject NewItem(GameObject parent, Vector3 pos)
     {
         GameObject go = NGUITools.AddChild(parent, renderItemPrefab); ;
         go.transform.localScale = Vector3.one;
@@ -258,7 +268,7 @@ public class MYScrollViewContent : MonoBehaviour
         return go;
     }
 
-    void ItemRenderCallback ( GameObject item, int dataIdx )
+    void ItemRenderCallback(GameObject item, int dataIdx)
     {
         if (null != renderItem)
         {

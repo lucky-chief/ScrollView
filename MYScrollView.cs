@@ -15,11 +15,13 @@ public class MYScrollView : MonoBehaviour
     private Vector3 mLastPos;
     private Plane mPlane;
     private UIPanel mPanel;
-    private Vector3 mMomentum;
+    private Vector3 mMomentum = Vector3.zero;
     private Vector2 mLastTouchPos;
-    private Vector2 mDragStartOffset;
+    private Vector2 mDragStartOffset = Vector2.zero;
     private float timePressed;
     private bool inited;
+    private bool pressed;
+    bool moveUpOrLeft = true;
 
     public UIPanel Panel { get { return mPanel; } }
 
@@ -31,6 +33,14 @@ public class MYScrollView : MonoBehaviour
     void Start ()
     {
 
+    }
+
+    void Update()
+    {
+        if(pressed && UICamera.currentTouch != null)
+        {
+            mLastTouchPos = UICamera.currentTouch.pos;
+        }
     }
 
     public void Init(int dataSourceCount,int renderIndex = 0)
@@ -53,19 +63,16 @@ public class MYScrollView : MonoBehaviour
             {
                 Vector3 currentPos = ray.GetPoint(dist);
                 Vector3 offset = currentPos - mLastPos;
-
-
+                
+                if (offset.y > 0) moveUpOrLeft = true;
+                else if (offset.y < 0) moveUpOrLeft = false;
                 mLastPos = currentPos;
                 MoveAbsolute(offset);
-                //if (offset.y > 0 && content.DataRenderedIdxDown >= content.DataSourceCount - 1)
-                //{
-                //    Debug.Log("dddddddddddddd: " + content.DataRenderedIdxDown);
-                //    content.UpdateStopPosition();
-                //    content.PullBack(true);
-                //}
-                if(null!=content.SpPanel.onMoving)
+                if (!moveUpOrLeft && content.DataRenderedIdxUp == -1) return;
+                if (moveUpOrLeft && content.DataRenderedIdxDown == content.DataSourceCount - 1) return;
+                if (null!=content.SpPanel.onMoving)
                 {
-                    content.SpPanel.onMoving(offset.y > 0);
+                    content.SpPanel.onMoving(moveUpOrLeft);
                 }
             }
         }
@@ -74,8 +81,11 @@ public class MYScrollView : MonoBehaviour
     public void Press ( bool pressed )
     {
         if (!inited) return;
+       // if (content.PullingBack) return;
+        this.pressed = pressed;
         if (pressed)
         {
+            content.PullingBack = false;
             timePressed = Time.time;
             mLastPos = UICamera.lastWorldPosition;
             mLastTouchPos = UICamera.currentTouch.pos;
@@ -84,29 +94,25 @@ public class MYScrollView : MonoBehaviour
         }
         else
         {
-            bool towardsUp = UICamera.currentTouch.pos.y - mLastTouchPos.y > 0;
-            //如果content的内容没有超出scrollview的可视区域
-            //则content无法移动
-            //  if (content.ContentBounds.size.y <= mPanel.GetViewSize().y)
-            if (towardsUp && content.DataRenderedIdxDown >= content.DataSourceCount - 1)
+            if (moveUpOrLeft && content.DataRenderedIdxDown == content.DataSourceCount)
             {
                 Debug.Log("cccccccccc: " + content.DataRenderedIdxDown);
                 content.UpdateStopPosition();
                 content.PullBack(true);
                 return;
             }
-
-            //if(!towardsUp && content.DataRenderedIdxUp == 0)
-            //{
-            //    Debug.Log("dddddddddddddddd");
-            //    content.PullBack();
-            //    return;
-            //}
+            if (!moveUpOrLeft && content.DataRenderedIdxUp == -1)
+            {
+                Debug.Log("dddddddddddddddd");
+                content.UpdateStopPosition(false);
+                content.PullBack(false);
+                return;
+            }
 
             float now = Time.time;
             if (now - timePressed <= scrollTimeHold && (UICamera.currentTouch.pos - mLastTouchPos).sqrMagnitude > 0.1f)
             {
-                Vector3 pos = content.transform.localPosition + new Vector3(0, towardsUp ? maxSpeed : -maxSpeed, 0);
+                Vector3 pos = content.transform.localPosition + new Vector3(0, moveUpOrLeft ? maxSpeed : -maxSpeed, 0);
                 pos.x = Mathf.Round(pos.x);
                 pos.y = Mathf.Round(pos.y);
                 SpringPanel.Begin(content.gameObject, pos, 13f).strength = 8f;
