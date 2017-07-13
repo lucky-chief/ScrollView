@@ -1,37 +1,14 @@
 ﻿using UnityEngine;
 using System.Collections;
 
-public class MYScrollView : MonoBehaviour
+public class MY_ScrollView : MonoBehaviour
 {
-    public delegate void MYScrollViewItem ( GameObject item, int dataIndex );
-    public event MYScrollViewItem renderItemChange;
-
-    public enum Movement { Vertical,Horizontal}
-
     [SerializeField]
-    MYScrollViewContent content = null;
-    [SerializeField]
-    int maxSpeed = 100;
-
-    float scrollTimeHold = 0.5f;
-    private Vector3 mLastPos;
-    private Plane mPlane;
-    private UIPanel mPanel;
-    private Vector2 mLastTouchPos;
-    private float timePressed;
-    private bool inited;
-    private bool pressed;
-    private bool moveUpOrLeft = true;
-
-    public UIPanel Panel { get { return mPanel; } }
-
-    void Awake()
-    {
-        mPanel = GetComponent<UIPanel>();
-    }
+    int momentumAmount = 100;
 
     public void Init(int dataSourceCount,int renderIndex = 0)
     {
+        if (!enabled) return;
         content.DataSourceCount = dataSourceCount;
         content.RenderIndex = renderIndex;
         content.Render();
@@ -92,7 +69,7 @@ public class MYScrollView : MonoBehaviour
             mLastPos = UICamera.lastWorldPosition;
             mLastTouchPos = UICamera.currentTouch.pos;
             content.SpPanel.enabled = false;
-            mPlane = new Plane(content.transform.rotation * Vector3.back, mLastPos);
+            mPlane = new Plane(content.trans.rotation * Vector3.back, mLastPos);
         }
         else
         {
@@ -113,21 +90,49 @@ public class MYScrollView : MonoBehaviour
             float now = Time.time;
             if (now - timePressed <= scrollTimeHold && (UICamera.currentTouch.pos - mLastTouchPos).sqrMagnitude > 0.1f)
             {
-                Vector3 pos = content.transform.localPosition + new Vector3(0, moveUpOrLeft ? maxSpeed : -maxSpeed, 0);
+                Vector3 pos = content.trans.localPosition + new Vector3(0, moveUpOrLeft ? momentumAmount : -momentumAmount, 0);
                 pos.x = Mathf.Round(pos.x);
                 pos.y = Mathf.Round(pos.y);
-                SpringPanel.Begin(content.gameObject, pos, 13f).strength = 8f;
+                SpringPanel.Begin(content.trans.gameObject, pos, 13f).strength = 8f;
             }
         }
     }
 
+    public UIPanel Panel { get { return mPanel; } }
+
     void DragMove ( Vector3 absolute )
     {
-        Vector3 a = content.transform.InverseTransformPoint(absolute);
-        Vector3 b = content.transform.InverseTransformPoint(Vector3.zero);
+        Vector3 a = content.trans.InverseTransformPoint(absolute);
+        Vector3 b = content.trans.InverseTransformPoint(Vector3.zero);
         Vector3 relative = a - b;
         relative.x = 0;
         relative.z = 0;
-        content.transform.localPosition += relative;
+        content.trans.localPosition += relative;
     }
+
+    void Awake ()
+    {
+        mPanel = GetComponent<UIPanel>();
+        content = GetComponentInChildren<IMY_SVContent>();
+        if(null == content)
+        {
+            Debug.LogError("MY_ScrollView的孩子中没有找到 IMY_SVContent 组件，请检查！");
+            enabled = false;
+        }
+    }
+
+    IMY_SVContent content = null;
+    float scrollTimeHold = 0.5f;
+    private Vector3 mLastPos;
+    private Plane mPlane;
+    private UIPanel mPanel;
+    private Vector2 mLastTouchPos;
+    private float timePressed;
+    private bool inited;
+    private bool pressed;
+    private bool moveUpOrLeft = true;
+
+    public delegate void MYScrollViewItem ( GameObject item, int dataIndex );
+    public event MYScrollViewItem renderItemChange;
+    public enum Movement { Vertical, Horizontal }
 }

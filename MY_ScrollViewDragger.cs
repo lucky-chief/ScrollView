@@ -1,19 +1,9 @@
 ﻿using UnityEngine;
 using System.Collections;
 
-public class MYDragScrollView : MonoBehaviour {
+public class MY_ScrollViewDragger : MonoBehaviour {
     [SerializeField]
-    MYScrollView scrollView;
-
-	// Use this for initialization
-	void Start () {
-	
-	}
-	
-	// Update is called once per frame
-	void Update () {
-	
-	}
+    MY_ScrollView scrollView;
 
     void OnDrag(Vector2 v)
     {

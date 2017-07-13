@@ -3,16 +3,14 @@ using System.Collections.Generic;
 using System;
 
 [RequireComponent(typeof(SpringPanel))]
-public class MYScrollViewContent : MonoBehaviour
+public class MY_SameSizeSVContent : MonoBehaviour, IMY_SVContent
 {
     [SerializeField]
-    MYScrollView scrollView;
+    MY_ScrollView scrollView;
     [SerializeField]
-    MYScrollView.Movement layout;
+    MY_ScrollView.Movement layout;
     [SerializeField]
     GameObject renderItemPrefab;
-    [SerializeField]
-    bool equalSize = true;
     [SerializeField]
     int size;
     [SerializeField]
@@ -50,6 +48,11 @@ public class MYScrollViewContent : MonoBehaviour
     {
         mSpringPanel.onMoving -= OnMoving;
         mSpringPanel.onFinished -= OnFinish;
+    }
+
+    public Transform trans
+    {
+        get { return transform; }
     }
 
     public SpringPanel SpPanel
@@ -95,40 +98,33 @@ public class MYScrollViewContent : MonoBehaviour
         dataRenderedIdxDown = renderIndex;
         while (true)
         {
-            if (equalSize)
+            int nowPos = -dataRenderedIdxDown * (size + gap);
+            if (Mathf.Abs(nowPos) >= scrollView.Panel.GetViewSize().y)
             {
-                int nowPos = -dataRenderedIdxDown * (size + gap);
-                if (Mathf.Abs(nowPos) >= scrollView.Panel.GetViewSize().y)
+                fulled = true;
+                if (dataRenderedIdxDown < dataSourceCount)
                 {
-                    fulled = true;
-                    if (dataRenderedIdxDown < dataSourceCount)
+                    mStopPos = transform.localPosition;
+                    if (dataRenderedIdxDown < dataSourceCount - 1)
                     {
-                        mStopPos = transform.localPosition;
-                        if (dataRenderedIdxDown < dataSourceCount - 1)
-                        {
-                            GameObject item = NewItem(gameObject, new Vector3(0, -dataRenderedIdxDown * (size + gap), 0));
-                            renderedItems.Add(item);
-                            item.name = dataRenderedIdxDown.ToString();
-                            scrollView.ItemChange(item, dataRenderedIdxDown);
-                            dataRenderedIdxDown++;
-                        }
-                        return;
+                        GameObject item = NewItem(gameObject, new Vector3(0, -dataRenderedIdxDown * (size + gap), 0));
+                        renderedItems.Add(item);
+                        item.name = dataRenderedIdxDown.ToString();
+                        scrollView.ItemChange(item, dataRenderedIdxDown);
+                        dataRenderedIdxDown++;
                     }
                     return;
                 }
-                else
-                {
-                    if (dataRenderedIdxDown == dataSourceCount) return;
-                    GameObject item = NewItem(gameObject, new Vector3(0, nowPos, 0));
-                    renderedItems.Add(item);
-                    item.name = dataRenderedIdxDown.ToString();
-                    scrollView.ItemChange(item, dataRenderedIdxDown);
-                    dataRenderedIdxDown++;
-                }
+                return;
             }
             else
             {
-
+                if (dataRenderedIdxDown == dataSourceCount) return;
+                GameObject item = NewItem(gameObject, new Vector3(0, nowPos, 0));
+                renderedItems.Add(item);
+                item.name = dataRenderedIdxDown.ToString();
+                scrollView.ItemChange(item, dataRenderedIdxDown);
+                dataRenderedIdxDown++;
             }
         }
     }
@@ -142,8 +138,8 @@ public class MYScrollViewContent : MonoBehaviour
 
     public void UpdateStopPosition ( bool moveUpOrLeft = true )
     {
-        if (mStopPosCaled && moveUpOrLeft == mLastCalStopPosDirUp) return;
-        if(!fulled) moveUpOrLeft = false;
+        if (dataRenderedIdxDown != dataSourceCount - 1 && dataRenderedIdxUp != 0) return;
+        if (!fulled) moveUpOrLeft = false;
         GameObject item = moveUpOrLeft
                           ? renderedItems[renderedItems.Count - 1]
                           : renderedItems[0];
@@ -171,59 +167,57 @@ public class MYScrollViewContent : MonoBehaviour
     void OnMoving ( bool moveUpOrLeft )
     {
         if (mPullBack) return;
-        if (equalSize)
+        for (int i = 0; i < renderedItems.Count; i++)
         {
-            for (int i = 0; i < renderedItems.Count; i++)
+            Transform trans = renderedItems[i].transform;
+            Vector3 worldP = transform.TransformPoint(trans.localPosition);
+            Vector3 localP = scrollView.transform.parent.InverseTransformPoint(worldP);
+            if (moveUpOrLeft)
             {
-                Transform trans = renderedItems[i].transform;
-                Vector3 worldP = transform.TransformPoint(trans.localPosition);
-                Vector3 localP = scrollView.transform.parent.InverseTransformPoint(worldP);
-                if (moveUpOrLeft)
+                if (localP.y - size > viewSize.y * 0.5f + scrollView.Panel.clipOffset.y + scrollView.transform.localPosition.y)
                 {
-                    if (localP.y - size > viewSize.y * 0.5f + scrollView.Panel.clipOffset.y + scrollView.transform.localPosition.y)
+                    if (dataRenderedIdxDown < dataSourceCount)
                     {
-                        if (dataRenderedIdxDown < dataSourceCount)
+                        GameObject item = renderedItems[0];
+                        renderedItems.RemoveAt(0);
+                        renderedItems.Add(item);
+                        trans.localPosition = new Vector3(0, -dataRenderedIdxDown * (size + gap), 0);
+                        trans.gameObject.name = dataRenderedIdxDown + "";
+                        if (dataRenderedIdxDown == dataSourceCount - 1)
                         {
-                            GameObject item = renderedItems[0];
-                            renderedItems.RemoveAt(0);
-                            renderedItems.Add(item);
-                            trans.localPosition = new Vector3(0, -dataRenderedIdxDown * (size + gap), 0);
-                            trans.gameObject.name = dataRenderedIdxDown + "";
-                            if (dataRenderedIdxDown == dataSourceCount - 1)
-                            {
-                                UpdateStopPosition(true);
-                                PullBack();
-                            }
-                            scrollView.ItemChange(trans.gameObject, dataRenderedIdxDown);
-                            dataRenderedIdxDown++;
-                            dataRenderedIdxUp++;
+                            UpdateStopPosition(true);
+                            PullBack();
                         }
-                        break;
+                        scrollView.ItemChange(trans.gameObject, dataRenderedIdxDown);
+                        dataRenderedIdxDown++;
+                        dataRenderedIdxUp++;
                     }
+                    break;
                 }
-                else
+            }
+            else
+            {
+                if (localP.y < -viewSize.y * 0.5f + scrollView.Panel.clipOffset.y + scrollView.transform.localPosition.y)
                 {
-                    if (localP.y < -viewSize.y * 0.5f + scrollView.Panel.clipOffset.y + scrollView.transform.localPosition.y)
+                    if (dataRenderedIdxUp >= 0)
                     {
-                        if (dataRenderedIdxUp >= 0)
+                        int renderedCount = renderedItems.Count;
+                        GameObject item = renderedItems[renderedCount - 1];
+                        renderedItems.RemoveAt(renderedCount - 1);
+                        renderedItems.Insert(0, item);
+                        trans.localPosition = new Vector3(0, -dataRenderedIdxUp * (size + gap), 0);
+                        trans.gameObject.name = dataRenderedIdxUp + "";
+                        print("=======dataRenderedIdxUp=========: " + dataRenderedIdxUp);
+                        if (dataRenderedIdxUp == 0)
                         {
-                            int renderedCount = renderedItems.Count;
-                            GameObject item = renderedItems[renderedCount - 1];
-                            renderedItems.RemoveAt(renderedCount - 1);
-                            renderedItems.Insert(0, item);
-                            trans.localPosition = new Vector3(0, -dataRenderedIdxUp * (size + gap), 0);
-                            trans.gameObject.name = dataRenderedIdxUp + "";
-                            if (dataRenderedIdxUp == 0)
-                            {
-                                UpdateStopPosition(false);
-                                PullBack();
-                            }
-                            scrollView.ItemChange(trans.gameObject, dataRenderedIdxUp);
-                            dataRenderedIdxDown--;
-                            dataRenderedIdxUp--;
+                            UpdateStopPosition(false);
+                            PullBack();
                         }
-                        break;
+                        scrollView.ItemChange(trans.gameObject, dataRenderedIdxUp);
+                        dataRenderedIdxDown--;
+                        dataRenderedIdxUp--;
                     }
+                    break;
                 }
             }
         }
@@ -231,11 +225,7 @@ public class MYScrollViewContent : MonoBehaviour
 
     void OnFinish ()
     {
-        if (mPullBack)
-        {
-            mPullBack = false;
-            return;
-        }
+        mPullBack = false;
     }
 
     GameObject NewItem ( GameObject parent, Vector3 pos )
