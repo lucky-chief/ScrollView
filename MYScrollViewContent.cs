@@ -5,10 +5,6 @@ using System;
 [RequireComponent(typeof(SpringPanel))]
 public class MYScrollViewContent : MonoBehaviour
 {
-
-    public delegate void MYScrollViewItem(GameObject item, int dataIndex);
-    public event MYScrollViewItem renderItem;
-
     [SerializeField]
     MYScrollView scrollView;
     [SerializeField]
@@ -27,31 +23,30 @@ public class MYScrollViewContent : MonoBehaviour
 
     SpringPanel mSpringPanel;
     Vector3 mStopPos;
-    Bounds mBounds;
     bool mPullBack;
     int dataRenderedIdxUp;
     int dataRenderedIdxDown;
     Vector2 viewSize;
     bool mStopPosCaled = false;
     bool mLastCalStopPosDirUp = false;
+    bool fulled = false;
 
     List<GameObject> renderedItems = new List<GameObject>();
 
-    void Awake()
+    void Awake ()
     {
         mStopPos = transform.localPosition;
         mSpringPanel = GetComponent<SpringPanel>();
         viewSize = scrollView.Panel.GetViewSize();
-        mBounds = NGUIMath.CalculateAbsoluteWidgetBounds(transform);
     }
 
-    void Start()
+    void Start ()
     {
         mSpringPanel.onMoving += OnMoving;
         mSpringPanel.onFinished += OnFinish;
     }
 
-    void OnDestroy()
+    void OnDestroy ()
     {
         mSpringPanel.onMoving -= OnMoving;
         mSpringPanel.onFinished -= OnFinish;
@@ -87,22 +82,15 @@ public class MYScrollViewContent : MonoBehaviour
         get { return dataRenderedIdxDown; }
     }
 
-    public Bounds ContentBounds
-    {
-        get
-        {
-            return mBounds;
-        }
-    }
-
     public bool PullingBack
     {
         get { return mPullBack; }
         set { mPullBack = value; }
     }
 
-    public void Render()
+    public void Render ()
     {
+        if (dataSourceCount == 0) return;
         dataRenderedIdxUp = -1;
         dataRenderedIdxDown = renderIndex;
         while (true)
@@ -112,21 +100,16 @@ public class MYScrollViewContent : MonoBehaviour
                 int nowPos = -dataRenderedIdxDown * (size + gap);
                 if (Mathf.Abs(nowPos) >= scrollView.Panel.GetViewSize().y)
                 {
-                    if (dataRenderedIdxDown < DataSourceCount)
+                    fulled = true;
+                    if (dataRenderedIdxDown < dataSourceCount)
                     {
                         mStopPos = transform.localPosition;
-                        //if (dataRenderedIdxUp > 0)
-                        //{
-                        //    GameObject cacheItem = NewItem(scrollView.gameObject, Vector3.one * -10000);
-                        //    ItemRenderCallback(cacheItem, dataRenderedIdxUp - 1);
-                        //}
-
                         if (dataRenderedIdxDown < dataSourceCount - 1)
                         {
                             GameObject item = NewItem(gameObject, new Vector3(0, -dataRenderedIdxDown * (size + gap), 0));
                             renderedItems.Add(item);
                             item.name = dataRenderedIdxDown.ToString();
-                            ItemRenderCallback(item, dataRenderedIdxDown);
+                            scrollView.ItemChange(item, dataRenderedIdxDown);
                             dataRenderedIdxDown++;
                         }
                         return;
@@ -135,10 +118,11 @@ public class MYScrollViewContent : MonoBehaviour
                 }
                 else
                 {
+                    if (dataRenderedIdxDown == dataSourceCount) return;
                     GameObject item = NewItem(gameObject, new Vector3(0, nowPos, 0));
                     renderedItems.Add(item);
                     item.name = dataRenderedIdxDown.ToString();
-                    ItemRenderCallback(item, dataRenderedIdxDown);
+                    scrollView.ItemChange(item, dataRenderedIdxDown);
                     dataRenderedIdxDown++;
                 }
             }
@@ -149,20 +133,20 @@ public class MYScrollViewContent : MonoBehaviour
         }
     }
 
-    public void PullBack(bool moveUp = true)
+    public void PullBack ()
     {
         if (mPullBack) return;
         mPullBack = true;
         SpringPanel.Begin(gameObject, mStopPos, 13f).strength = 8f;
     }
 
-    public void UpdateStopPosition(bool moveUpOrLeft = true)
+    public void UpdateStopPosition ( bool moveUpOrLeft = true )
     {
         if (mStopPosCaled && moveUpOrLeft == mLastCalStopPosDirUp) return;
+        if(!fulled) moveUpOrLeft = false;
         GameObject item = moveUpOrLeft
                           ? renderedItems[renderedItems.Count - 1]
                           : renderedItems[0];
-        Debug.Log("item-name: " + item.name);
         Bounds b = NGUIMath.CalculateRelativeWidgetBounds(scrollView.transform, item.transform);
         float H = scrollView.Panel.GetViewSize().y * 0.5f;
         float h = b.extents.y;
@@ -170,7 +154,7 @@ public class MYScrollViewContent : MonoBehaviour
                   ? scrollView.Panel.clipOffset.y + h - H
                   : scrollView.Panel.clipOffset.y - h + H;
         float deltaY = moveUpOrLeft ? y - b.center.y : b.center.y - y;
-        Vector3 pos = moveUpOrLeft 
+        Vector3 pos = moveUpOrLeft
                       ? transform.localPosition + new Vector3(0, deltaY, 0)
                       : transform.localPosition - new Vector3(0, deltaY, 0);
         mStopPosCaled = true;
@@ -184,7 +168,7 @@ public class MYScrollViewContent : MonoBehaviour
         //Debug.Log("======mStopPos======: " + mStopPos);
     }
 
-    void OnMoving(bool moveUpOrLeft)
+    void OnMoving ( bool moveUpOrLeft )
     {
         if (mPullBack) return;
         if (equalSize)
@@ -198,7 +182,6 @@ public class MYScrollViewContent : MonoBehaviour
                 {
                     if (localP.y - size > viewSize.y * 0.5f + scrollView.Panel.clipOffset.y + scrollView.transform.localPosition.y)
                     {
-                        Debug.Log("=============111: " + dataRenderedIdxDown);
                         if (dataRenderedIdxDown < dataSourceCount)
                         {
                             GameObject item = renderedItems[0];
@@ -208,14 +191,12 @@ public class MYScrollViewContent : MonoBehaviour
                             trans.gameObject.name = dataRenderedIdxDown + "";
                             if (dataRenderedIdxDown == dataSourceCount - 1)
                             {
-                                UpdateStopPosition();
-                                PullBack(true);
-                               // return;
+                                UpdateStopPosition(true);
+                                PullBack();
                             }
+                            scrollView.ItemChange(trans.gameObject, dataRenderedIdxDown);
                             dataRenderedIdxDown++;
                             dataRenderedIdxUp++;
-                            if (null != renderItem)
-                                renderItem(trans.gameObject, dataRenderedIdxDown);
                         }
                         break;
                     }
@@ -224,7 +205,6 @@ public class MYScrollViewContent : MonoBehaviour
                 {
                     if (localP.y < -viewSize.y * 0.5f + scrollView.Panel.clipOffset.y + scrollView.transform.localPosition.y)
                     {
-                        Debug.Log("============dataRenderedIdxUp: " + dataRenderedIdxUp);
                         if (dataRenderedIdxUp >= 0)
                         {
                             int renderedCount = renderedItems.Count;
@@ -236,13 +216,11 @@ public class MYScrollViewContent : MonoBehaviour
                             if (dataRenderedIdxUp == 0)
                             {
                                 UpdateStopPosition(false);
-                                PullBack(false);
-                              //  return;
+                                PullBack();
                             }
+                            scrollView.ItemChange(trans.gameObject, dataRenderedIdxUp);
                             dataRenderedIdxDown--;
                             dataRenderedIdxUp--;
-                            if (null != renderItem)
-                                renderItem(trans.gameObject, dataRenderedIdxUp);
                         }
                         break;
                     }
@@ -251,7 +229,7 @@ public class MYScrollViewContent : MonoBehaviour
         }
     }
 
-    void OnFinish()
+    void OnFinish ()
     {
         if (mPullBack)
         {
@@ -260,19 +238,11 @@ public class MYScrollViewContent : MonoBehaviour
         }
     }
 
-    GameObject NewItem(GameObject parent, Vector3 pos)
+    GameObject NewItem ( GameObject parent, Vector3 pos )
     {
         GameObject go = NGUITools.AddChild(parent, renderItemPrefab); ;
         go.transform.localScale = Vector3.one;
         go.transform.localPosition = pos;
         return go;
-    }
-
-    void ItemRenderCallback(GameObject item, int dataIdx)
-    {
-        if (null != renderItem)
-        {
-            renderItem.Invoke(item, dataIdx);
-        }
     }
 }
