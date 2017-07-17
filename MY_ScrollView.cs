@@ -48,8 +48,8 @@ public class MY_ScrollView : MonoBehaviour
                 else if (offset.y < 0) moveUpOrLeft = false;
 
                 DragMove(offset);
-                if (!moveUpOrLeft && content.DataRenderedIdxUp == -1) return;
-                if (moveUpOrLeft && content.DataRenderedIdxDown == content.DataSourceCount) return;
+                if (!moveUpOrLeft && content.DataRenderedIdxUp == 0) return;
+                if (moveUpOrLeft && content.DataRenderedIdxDown == content.DataSourceCount - 1) return;
                 if (null!=content.SpPanel.onMoving)
                 {
                     content.SpPanel.onMoving(moveUpOrLeft);
@@ -73,14 +73,14 @@ public class MY_ScrollView : MonoBehaviour
         }
         else
         {
-            if (moveUpOrLeft && content.DataRenderedIdxDown == content.DataSourceCount)
+            if (moveUpOrLeft && content.DataRenderedIdxDown == content.DataSourceCount - 1)
             {
                 content.UpdateStopPosition();
                 content.PullBack();
                 return;
             }
 
-            if (!moveUpOrLeft && content.DataRenderedIdxUp == -1)
+            if (!moveUpOrLeft && content.DataRenderedIdxUp == 0)
             {
                 content.UpdateStopPosition(false);
                 content.PullBack();

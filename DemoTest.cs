@@ -5,7 +5,7 @@ using System;
 public class DemoTest : MonoBehaviour
 {
    // string[] testStrs = { "AAAAAA", "AAAAAA\nAAAA", "AAAAAA\nAAA\nAAAAAAA", "AAAAAA", "AAAAAA\nAAA\nAAAAAAA\nAAAAAAAAAAAAAA","bbbb", "AAAAAA\nAAAA", "AAAAAA\nAAA\nAAAAAAA", "AAAAAA", "AAAAAA\nAAA\nAAAAAAA\nAAAAAAAAAAAAAA", "ccccc", "AAAAAA\nAAAA", "AAAAAA\nAAA\nAAAAAAA", "AAAAAA", "AAAAAA\nAAA\nAAAAAAA\nAAAAAAAAAAAAAA", "bbbb", "AAAAAA\nAAAA", "AAAAAA\nAAA\nAAAAAAA", "AAAAAA", "AAAAAA\nAAA\nAAAAAAA\nAAAAAAAAAAAAAA", "ccccc" };
-    string[] testStrs = { "1-1-1-1", "2-2-2-2-2", "3-3-3-3-3", "4-4-4-4-4", "5-5-5-5-5", "6-6-6-6-6", "7-7-7-7-7", "8-8-8-8-8", "9-9-9-9-9", "10-10-10-10", "11-11-11-11", "1-1-1-1", "2-2-2-2-2", "3-3-3-3-3", "4-4-4-4-4", "5-5-5-5-5", "6-6-6-6-6", "7-7-7-7-7", "8-8-8-8-8", "9-9-9-9-9", "10-10-10-10", "11-11-11-11" };
+    string[] testStrs = { "1-1-1-1", "2-2-2-2-2", "3-3-3-3-3", "4-4-4-4-4", "5-5-5-5-5", "6-6-6-6-6", "7-7-7-7-7", "8-8-8-8-8", "9-9-9-9-9", "10-10-10-10", "11-11-11-11" };
    // string[] testStrs = { "AAAAAA", "AAAAAA" , "AAAAAA" };
 
     public MY_ScrollView scrollView;

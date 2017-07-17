@@ -94,23 +94,23 @@ public class MY_SameSizeSVContent : MonoBehaviour, IMY_SVContent
     public void Render ()
     {
         if (dataSourceCount == 0) return;
-        dataRenderedIdxUp = -1;
-        dataRenderedIdxDown = renderIndex;
+        dataRenderedIdxUp = 0;
+        dataRenderedIdxDown = 0;
         while (true)
         {
             int nowPos = -dataRenderedIdxDown * (size + gap);
             if (Mathf.Abs(nowPos) >= scrollView.Panel.GetViewSize().y)
             {
                 fulled = true;
+                mStopPos = transform.localPosition;
                 if (dataRenderedIdxDown < dataSourceCount)
                 {
-                    mStopPos = transform.localPosition;
-                    if (dataRenderedIdxDown < dataSourceCount - 1)
+                    GameObject item = NewItem(gameObject, new Vector3(0, -dataRenderedIdxDown * (size + gap), 0));
+                    renderedItems.Add(item);
+                    item.name = dataRenderedIdxDown.ToString();
+                    scrollView.ItemChange(item, dataRenderedIdxDown);
+                    if(dataRenderedIdxDown + 1 < dataSourceCount)
                     {
-                        GameObject item = NewItem(gameObject, new Vector3(0, -dataRenderedIdxDown * (size + gap), 0));
-                        renderedItems.Add(item);
-                        item.name = dataRenderedIdxDown.ToString();
-                        scrollView.ItemChange(item, dataRenderedIdxDown);
                         dataRenderedIdxDown++;
                     }
                     return;
@@ -119,12 +119,17 @@ public class MY_SameSizeSVContent : MonoBehaviour, IMY_SVContent
             }
             else
             {
-                if (dataRenderedIdxDown == dataSourceCount) return;
-                GameObject item = NewItem(gameObject, new Vector3(0, nowPos, 0));
-                renderedItems.Add(item);
-                item.name = dataRenderedIdxDown.ToString();
-                scrollView.ItemChange(item, dataRenderedIdxDown);
-                dataRenderedIdxDown++;
+                if(dataRenderedIdxDown < dataSourceCount)
+                {
+                    GameObject item = NewItem(gameObject, new Vector3(0, nowPos, 0));
+                    renderedItems.Add(item);
+                    item.name = dataRenderedIdxDown.ToString();
+                    scrollView.ItemChange(item, dataRenderedIdxDown);
+                    if (dataRenderedIdxDown + 1 < dataSourceCount)
+                    {
+                        dataRenderedIdxDown++;
+                    }
+                }
             }
         }
     }
@@ -138,7 +143,7 @@ public class MY_SameSizeSVContent : MonoBehaviour, IMY_SVContent
 
     public void UpdateStopPosition ( bool moveUpOrLeft = true )
     {
-        if (dataRenderedIdxDown != dataSourceCount - 1 && dataRenderedIdxUp != 0) return;
+       // if (dataRenderedIdxDown != dataSourceCount - 1 && dataRenderedIdxUp != 0) return;
         if (!fulled) moveUpOrLeft = false;
         GameObject item = moveUpOrLeft
                           ? renderedItems[renderedItems.Count - 1]
@@ -178,19 +183,24 @@ public class MY_SameSizeSVContent : MonoBehaviour, IMY_SVContent
                 {
                     if (dataRenderedIdxDown < dataSourceCount)
                     {
+                        if (dataRenderedIdxDown == dataSourceCount - 1)
+                        {
+                            UpdateStopPosition(true);
+                            PullBack();
+                            return;
+                        }
                         GameObject item = renderedItems[0];
                         renderedItems.RemoveAt(0);
                         renderedItems.Add(item);
                         trans.localPosition = new Vector3(0, -dataRenderedIdxDown * (size + gap), 0);
                         trans.gameObject.name = dataRenderedIdxDown + "";
-                        if (dataRenderedIdxDown == dataSourceCount - 1)
-                        {
-                            UpdateStopPosition(true);
-                            PullBack();
-                        }
                         scrollView.ItemChange(trans.gameObject, dataRenderedIdxDown);
-                        dataRenderedIdxDown++;
-                        dataRenderedIdxUp++;
+                        Debug.Log("==========dataRenderedIdxDown: " + dataRenderedIdxDown);
+                        if (dataRenderedIdxDown + 1 < dataSourceCount)
+                        {
+                            dataRenderedIdxDown++;
+                            dataRenderedIdxUp++;
+                        }
                     }
                     break;
                 }
@@ -201,21 +211,24 @@ public class MY_SameSizeSVContent : MonoBehaviour, IMY_SVContent
                 {
                     if (dataRenderedIdxUp >= 0)
                     {
+                        if (dataRenderedIdxUp == 0)
+                        {
+                            UpdateStopPosition(false);
+                            PullBack();
+                            return;
+                        }
                         int renderedCount = renderedItems.Count;
                         GameObject item = renderedItems[renderedCount - 1];
                         renderedItems.RemoveAt(renderedCount - 1);
                         renderedItems.Insert(0, item);
                         trans.localPosition = new Vector3(0, -dataRenderedIdxUp * (size + gap), 0);
                         trans.gameObject.name = dataRenderedIdxUp + "";
-                        print("=======dataRenderedIdxUp=========: " + dataRenderedIdxUp);
-                        if (dataRenderedIdxUp == 0)
-                        {
-                            UpdateStopPosition(false);
-                            PullBack();
-                        }
                         scrollView.ItemChange(trans.gameObject, dataRenderedIdxUp);
-                        dataRenderedIdxDown--;
-                        dataRenderedIdxUp--;
+                        if(dataRenderedIdxUp - 1 >= 0)
+                        {
+                            dataRenderedIdxDown--;
+                            dataRenderedIdxUp--;
+                        }
                     }
                     break;
                 }
