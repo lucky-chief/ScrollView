@@ -28,23 +28,25 @@ public class MY_SameSizeSVContent : MonoBehaviour, IMY_SVContent
     bool mStopPosCaled = false;
     bool mLastCalStopPosDirUp = false;
     bool fulled = false;
+    bool mBottomed = false;
+    bool mToped = true;
 
     List<GameObject> renderedItems = new List<GameObject>();
 
-    void Awake ()
+    void Awake()
     {
         mStopPos = transform.localPosition;
         mSpringPanel = GetComponent<SpringPanel>();
         viewSize = scrollView.Panel.GetViewSize();
     }
 
-    void Start ()
+    void Start()
     {
         mSpringPanel.onMoving += OnMoving;
         mSpringPanel.onFinished += OnFinish;
     }
 
-    void OnDestroy ()
+    void OnDestroy()
     {
         mSpringPanel.onMoving -= OnMoving;
         mSpringPanel.onFinished -= OnFinish;
@@ -91,7 +93,7 @@ public class MY_SameSizeSVContent : MonoBehaviour, IMY_SVContent
         set { mPullBack = value; }
     }
 
-    public void Render ()
+    public void Render()
     {
         if (dataSourceCount == 0) return;
         dataRenderedIdxUp = 0;
@@ -109,7 +111,7 @@ public class MY_SameSizeSVContent : MonoBehaviour, IMY_SVContent
                     renderedItems.Add(item);
                     item.name = dataRenderedIdxDown.ToString();
                     scrollView.ItemChange(item, dataRenderedIdxDown);
-                    if(dataRenderedIdxDown + 1 < dataSourceCount)
+                    if (dataRenderedIdxDown + 1 < dataSourceCount)
                     {
                         dataRenderedIdxDown++;
                     }
@@ -119,7 +121,7 @@ public class MY_SameSizeSVContent : MonoBehaviour, IMY_SVContent
             }
             else
             {
-                if(dataRenderedIdxDown < dataSourceCount)
+                if (dataRenderedIdxDown < dataSourceCount)
                 {
                     GameObject item = NewItem(gameObject, new Vector3(0, nowPos, 0));
                     renderedItems.Add(item);
@@ -134,16 +136,17 @@ public class MY_SameSizeSVContent : MonoBehaviour, IMY_SVContent
         }
     }
 
-    public void PullBack ()
+    public void PullBack()
     {
         if (mPullBack) return;
         mPullBack = true;
         SpringPanel.Begin(gameObject, mStopPos, 13f).strength = 8f;
     }
 
-    public void UpdateStopPosition ( bool moveUpOrLeft = true )
+    public void UpdateStopPosition(bool moveUpOrLeft = true)
     {
-       // if (dataRenderedIdxDown != dataSourceCount - 1 && dataRenderedIdxUp != 0) return;
+        if (dataRenderedIdxDown != dataSourceCount - 1 && dataRenderedIdxUp != 0) return;
+        Debug.Log("AAAAAAAAAAAAAAAAAA: " + moveUpOrLeft);
         if (!fulled) moveUpOrLeft = false;
         GameObject item = moveUpOrLeft
                           ? renderedItems[renderedItems.Count - 1]
@@ -169,7 +172,7 @@ public class MY_SameSizeSVContent : MonoBehaviour, IMY_SVContent
         //Debug.Log("======mStopPos======: " + mStopPos);
     }
 
-    void OnMoving ( bool moveUpOrLeft )
+    void OnMoving(bool moveUpOrLeft)
     {
         if (mPullBack) return;
         for (int i = 0; i < renderedItems.Count; i++)
@@ -183,23 +186,30 @@ public class MY_SameSizeSVContent : MonoBehaviour, IMY_SVContent
                 {
                     if (dataRenderedIdxDown < dataSourceCount)
                     {
-                        if (dataRenderedIdxDown == dataSourceCount - 1)
-                        {
-                            UpdateStopPosition(true);
-                            PullBack();
-                            return;
-                        }
+                        if (mBottomed) return;
+                        Vector3 pos = renderedItems[renderedItems.Count - 1].transform.localPosition;
                         GameObject item = renderedItems[0];
                         renderedItems.RemoveAt(0);
                         renderedItems.Add(item);
-                        trans.localPosition = new Vector3(0, -dataRenderedIdxDown * (size + gap), 0);
+                        trans.localPosition = pos - new Vector3(0,size + gap, 0);
+                        if (dataRenderedIdxDown == dataSourceCount - 1)
+                        {
+                            mBottomed = true;
+                            mToped = false;
+                            UpdateStopPosition(true);
+                            PullBack();
+                            //return;
+                        }
                         trans.gameObject.name = dataRenderedIdxDown + "";
                         scrollView.ItemChange(trans.gameObject, dataRenderedIdxDown);
-                        Debug.Log("==========dataRenderedIdxDown: " + dataRenderedIdxDown);
                         if (dataRenderedIdxDown + 1 < dataSourceCount)
                         {
+                            mBottomed = false;
+                            mToped = false;
                             dataRenderedIdxDown++;
                             dataRenderedIdxUp++;
+                            //Debug.Log("==========dataRenderedIdxDown: " + dataRenderedIdxDown);
+                            //Debug.Log("==========dataRenderedIdxUp: " + dataRenderedIdxUp);
                         }
                     }
                     break;
@@ -211,23 +221,32 @@ public class MY_SameSizeSVContent : MonoBehaviour, IMY_SVContent
                 {
                     if (dataRenderedIdxUp >= 0)
                     {
-                        if (dataRenderedIdxUp == 0)
-                        {
-                            UpdateStopPosition(false);
-                            PullBack();
-                            return;
-                        }
+                        if (mToped) return;
+                        Vector3 pos = renderedItems[0].transform.localPosition;
                         int renderedCount = renderedItems.Count;
                         GameObject item = renderedItems[renderedCount - 1];
                         renderedItems.RemoveAt(renderedCount - 1);
                         renderedItems.Insert(0, item);
-                        trans.localPosition = new Vector3(0, -dataRenderedIdxUp * (size + gap), 0);
+                        Debug.Log("==========dataRenderedIdxUp: " + dataRenderedIdxUp);
+                        trans.localPosition = pos + new Vector3(0, size + gap, 0);
+                        if (dataRenderedIdxUp == 0)
+                        {
+                            mToped = true;
+                            mBottomed = false;
+                            UpdateStopPosition(false);
+                            PullBack();
+                           // return;
+                        }
                         trans.gameObject.name = dataRenderedIdxUp + "";
                         scrollView.ItemChange(trans.gameObject, dataRenderedIdxUp);
-                        if(dataRenderedIdxUp - 1 >= 0)
+                        if (dataRenderedIdxUp - 1 >= 0)
                         {
+                            mToped = false;
+                            mBottomed = false;
                             dataRenderedIdxDown--;
                             dataRenderedIdxUp--;
+                            Debug.Log("==========dataRenderedIdxDown: " + dataRenderedIdxDown);
+                            Debug.Log("==========dataRenderedIdxUp: " + dataRenderedIdxUp);
                         }
                     }
                     break;
