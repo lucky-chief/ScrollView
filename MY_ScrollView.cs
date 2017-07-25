@@ -63,6 +63,7 @@ public class MY_ScrollView : MonoBehaviour
         if (pressed)
         {
             content.PullingBack = false;
+            content.Pressed = true;
             timePressed = Time.time;
             mLastPos = UICamera.lastWorldPosition;
             mLastTouchPos = UICamera.currentTouch.pos;
@@ -71,14 +72,14 @@ public class MY_ScrollView : MonoBehaviour
         }
         else
         {
-            if (moveUpOrLeft && content.DataRenderedIdxDown == content.DataSourceCount - 1)
+            if (moveUpOrLeft && content.MaxIndex == content.DataSourceCount - 1)
             {
                 content.UpdateStopPosition();
                 content.PullBack();
                 return;
             }
 
-            if (!moveUpOrLeft && content.DataRenderedIdxUp == 0)
+            if (!moveUpOrLeft && content.MinIndex == 0)
             {
                 content.UpdateStopPosition(false);
                 content.PullBack();
@@ -93,10 +94,16 @@ public class MY_ScrollView : MonoBehaviour
                 pos.y = Mathf.Round(pos.y);
                 SpringPanel.Begin(content.trans.gameObject, pos, 13f).strength = 8f;
             }
+            else
+            {
+                content.Pressed = false;
+            }
         }
     }
 
     public UIPanel Panel { get { return mPanel; } }
+
+    public Vector4 ViewSize { get { return mPanel.GetViewSize(); } }
 
     void DragMove ( Vector3 absolute )
     {

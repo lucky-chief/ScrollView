@@ -7,10 +7,11 @@ public interface IMY_SVContent
     void UpdateStopPosition ( bool moveUpOrLeft = true );
 
     int DataSourceCount { get; set; }
-    int DataRenderedIdxUp { get; }
+    int MinIndex { get; }
     int RenderIndex { get; set; }
-    int DataRenderedIdxDown { get; }
+    int MaxIndex { get; }
     bool PullingBack { get; set; }
+    bool Pressed { get; set; }
     SpringPanel SpPanel{get;}
     Transform trans { get; }
 }

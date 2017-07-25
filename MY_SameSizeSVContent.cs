@@ -30,6 +30,7 @@ public class MY_SameSizeSVContent : MonoBehaviour, IMY_SVContent
     bool fulled = false;
     bool mBottomed = false;
     bool mToped = true;
+    bool pressed;
 
     List<GameObject> renderedItems = new List<GameObject>();
 
@@ -77,12 +78,12 @@ public class MY_SameSizeSVContent : MonoBehaviour, IMY_SVContent
         set { renderIndex = value; }
     }
 
-    public int DataRenderedIdxUp
+    public int MinIndex
     {
         get { return dataRenderedIdxUp; }
     }
 
-    public int DataRenderedIdxDown
+    public int MaxIndex
     {
         get { return dataRenderedIdxDown; }
     }
@@ -91,6 +92,12 @@ public class MY_SameSizeSVContent : MonoBehaviour, IMY_SVContent
     {
         get { return mPullBack; }
         set { mPullBack = value; }
+    }
+
+    public bool Pressed
+    {
+        get { return pressed; }
+        set { pressed = value; }
     }
 
     public void Render()
