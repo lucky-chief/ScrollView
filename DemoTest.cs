@@ -14,7 +14,7 @@ public class DemoTest : MonoBehaviour
     void Start ()
     {
         scrollView.renderItemChange += ItemChange;
-        scrollView.Init(testStrs.Length);
+        scrollView.Init(testStrs.Length + 1);
     }
 
     private void ItemChange ( GameObject item, int dataIndex )

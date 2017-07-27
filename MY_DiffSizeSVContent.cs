@@ -34,21 +34,22 @@ public class MY_DiffSizeSVContent : MonoBehaviour, IMY_SVContent
     List<GameObject> renderedItems = new List<GameObject>();
     Pool pool = new Pool();
 
-    void Awake()
+    void Awake ()
     {
+        pool.RegisterCache(renderItemPrefab);
         mStopPos = transform.localPosition;
         mSpringPanel = GetComponent<SpringPanel>();
         viewSize = scrollView.Panel.GetViewSize();
         contentStartPos = transform.localPosition;
     }
 
-    void Start()
+    void Start ()
     {
         mSpringPanel.onMoving += OnMoving;
         mSpringPanel.onFinished += OnFinish;
     }
 
-    void OnDestroy()
+    void OnDestroy ()
     {
         mSpringPanel.onMoving -= OnMoving;
         mSpringPanel.onFinished -= OnFinish;
@@ -101,10 +102,11 @@ public class MY_DiffSizeSVContent : MonoBehaviour, IMY_SVContent
         set
         {
             pressed = value;
+            contentStartPos = transform.localPosition;
         }
     }
 
-    public void Render()
+    public void Render ()
     {
         if (dataSourceCount == 0) return;
         minIndex = 0;
@@ -112,63 +114,56 @@ public class MY_DiffSizeSVContent : MonoBehaviour, IMY_SVContent
         float nowPos = 0;
         while (true)
         {
-            if (Mathf.Abs(nowPos) >= scrollView.Panel.GetViewSize().y)
+            if (Mathf.Abs(nowPos) < scrollView.Panel.GetViewSize().y)
             {
-                fulled = true;
-                mStopPos = transform.localPosition;
+                fulled = false;
                 if (maxIndex < dataSourceCount)
                 {
-                    GameObject item = NewItem(gameObject, new Vector3(0, nowPos, 0));
+                    GameObject item = pool.Pop(); //NewItem(gameObject, new Vector3(0, nowPos, 0));
+                    item.transform.SetParent(transform);
+                    item.transform.localScale = Vector3.one;
+                    item.transform.localPosition = new Vector3(0, nowPos, 0);
                     renderedItems.Add(item);
                     item.name = maxIndex.ToString();
                     scrollView.ItemChange(item, maxIndex);
-                    nowPos -= NGUIMath.CalculateRelativeWidgetBounds(transform, item.transform).size.y + gap;
-                    if (maxIndex + 1 < dataSourceCount)
+                    nowPos -= NGUIMath.CalculateRelativeWidgetBounds(transform, item.transform,true).size.y + gap;
+                    if (ValidateMax())
                     {
                         maxIndex++;
                     }
+                    else return;
                 }
-                return;
             }
             else
             {
-                if (maxIndex < dataSourceCount)
-                {
-                    GameObject item = NewItem(gameObject, new Vector3(0, nowPos, 0));
-                    renderedItems.Add(item);
-                    item.name = maxIndex.ToString();
-                    scrollView.ItemChange(item, maxIndex);
-                    nowPos -= NGUIMath.CalculateRelativeWidgetBounds(transform, item.transform).size.y + gap;
-                    if (maxIndex + 1 < dataSourceCount)
-                    {
-                        maxIndex++;
-                    }
-                }
+                fulled = true;
+                mStopPos = transform.localPosition;
+                return;
             }
         }
     }
 
-    public void PullBack()
+    public void PullBack ()
     {
         if (mPullBack) return;
         mPullBack = true;
         SpringPanel.Begin(gameObject, mStopPos, 13f).strength = 8f;
     }
 
-    bool ValidateMin()
+    bool ValidateMin ()
     {
         return minIndex - 1 >= 0;
     }
 
-    bool ValidateMax()
+    bool ValidateMax ()
     {
-        return maxIndex + 1 < dataSourceCount;
+        return maxIndex < dataSourceCount;
     }
 
-    public void UpdateStopPosition(bool moveUpOrLeft = true)
+    public void UpdateStopPosition ( bool moveUpOrLeft = true )
     {
         if (maxIndex != dataSourceCount - 1 && minIndex != 0) return;
-        Debug.Log("AAAAAAAAAAAAAAAAAA: " + moveUpOrLeft);
+        // Debug.Log("AAAAAAAAAAAAAAAAAA: " + moveUpOrLeft);
         if (!fulled) moveUpOrLeft = false;
         GameObject item = moveUpOrLeft
                           ? renderedItems[renderedItems.Count - 1]
@@ -194,134 +189,85 @@ public class MY_DiffSizeSVContent : MonoBehaviour, IMY_SVContent
         //Debug.Log("======mStopPos======: " + mStopPos);
     }
 
-    void OnMoving(bool moveUpOrLeft)
+    void OnMoving ( bool moveUpOrLeft )
     {
         if (mPullBack) return;
         if (!pressed) return;
         float movetum = transform.localPosition.y - contentStartPos.y;
+        contentStartPos = transform.localPosition;
         int renderedCount = renderedItems.Count;
-        if(movetum > 0)
+        if (movetum > 0)
         {
+            if (maxIndex == dataSourceCount - 1) return;
             GameObject lastItem = renderedItems[renderedCount - 1];
-            Bounds b = NGUIMath.CalculateRelativeWidgetBounds(transform, lastItem.transform);
+            Bounds b = NGUIMath.CalculateRelativeWidgetBounds(transform, lastItem.transform,true);
             if (lastItem.transform.localPosition.y + transform.localPosition.y >= scrollView.Panel.clipOffset.y - scrollView.ViewSize.y * 0.5f + b.size.y)
             {
-                if(ValidateMax())
+                Debug.Log("AAAAAAA: " + maxIndex);
+                if (ValidateMax())
                 {
-                    minIndex++;
-                    maxIndex++;
-                    GameObject item = pool.Pop()[0];
+                    GameObject item = pool.Pop();
+                    item.transform.SetParent(transform);
+                    item.transform.localPosition = lastItem.transform.localPosition - new Vector3(0, b.size.y + gap, 0);
+                    item.SetActive(true);
                     renderedItems.Add(item);
-                    scrollView.ItemChange(item,maxIndex);
+                    scrollView.ItemChange(item, maxIndex);
+                    maxIndex++;
+                    Debug.Log("BBBBBBB: " + maxIndex);
                 }
-                Debug.Log("xxxxxxxxxxxxxxxxx");
             }
 
-            //float abs = Mathf.Abs(movetum);
-            //if (abs >= gap)
-            //{
-            //    contentStartPos = trans.localPosition;
-            //    cacheDown[0].transform.SetParent(transform);
-            //    cacheDown[0].transform.localScale = Vector3.one;
-            //    cacheDown[0].transform.localPosition = renderedItems[renderedItems.Count - 1].transform.localPosition + new Vector3(0, gap, 0);
-            //    cacheDown.RemoveAt(0);
-            //    if(cacheDown.Count == 0)
-            //    {
-            //        FreshCacheDown(null);
-            //    }
-            //}
+            GameObject firstItem = renderedItems[0];
+            b = NGUIMath.CalculateRelativeWidgetBounds(transform, firstItem.transform, true);
+            if (firstItem.transform.localPosition.y + transform.localPosition.y >= scrollView.Panel.clipOffset.y + scrollView.ViewSize.y * 0.5f + b.size.y)
+            {
+                minIndex++;
+                pool.Push(new List<GameObject>() { firstItem });
+                firstItem.transform.SetParent(scrollView.transform);
+                firstItem.SetActive(false);
+                renderedItems.RemoveAt(0);
+            }
         }
-        else if(movetum < 0)
+        else if (movetum < 0)
         {
+            Debug.Log("=========: " + minIndex);
+            if (minIndex == 0) return;
+            GameObject firstItem = renderedItems[0];
+            Debug.Log("firstItemName: " + firstItem.name);
+            if (firstItem.transform.localPosition.y + transform.localPosition.y <= scrollView.Panel.clipOffset.y + scrollView.ViewSize.y * 0.5f)
+            {
+                Debug.Log("AAAAAAAAAAAAAAA");
+                if (ValidateMin())
+                {
+                    minIndex--;
+                    GameObject item = pool.Pop();
+                    scrollView.ItemChange(item, minIndex);
+                    Bounds b = NGUIMath.CalculateRelativeWidgetBounds(transform, item.transform, true);
+                    item.transform.SetParent(transform);
+                    item.transform.localPosition = firstItem.transform.localPosition + new Vector3(0, b.size.y + gap, 0);
+                    item.SetActive(true);
+                    renderedItems.Insert(0, item);
+                }
+            }
 
+            GameObject lastItem = renderedItems[renderedCount - 1];
+            if (lastItem.transform.localPosition.y + transform.localPosition.y <= scrollView.Panel.clipOffset.y - scrollView.ViewSize.y * 0.5f)
+            {
+                maxIndex--;
+                pool.Push(new List<GameObject>() { lastItem });
+                lastItem.transform.SetParent(scrollView.transform);
+                lastItem.SetActive(false);
+                renderedItems.RemoveAt(renderedCount - 1);
+            }
         }
-
-        //for (int i = 0; i < renderedItems.Count; i++)
-        //{
-        //    Transform trans = renderedItems[i].transform;
-        //    Vector3 worldP = transform.TransformPoint(trans.localPosition);
-        //    Vector3 localP = scrollView.transform.parent.InverseTransformPoint(worldP);
-        //    if (moveUpOrLeft)
-        //    {
-        //        if (localP.y - size > viewSize.y * 0.5f + scrollView.Panel.clipOffset.y + scrollView.transform.localPosition.y)
-        //        {
-        //            if (dataRenderedIdxDown < dataSourceCount)
-        //            {
-        //                if (mBottomed) return;
-        //                Vector3 pos = renderedItems[renderedItems.Count - 1].transform.localPosition;
-        //                GameObject item = renderedItems[0];
-        //                renderedItems.RemoveAt(0);
-        //                renderedItems.Add(item);
-        //                trans.localPosition = pos - new Vector3(0, size + gap, 0);
-        //                if (dataRenderedIdxDown == dataSourceCount - 1)
-        //                {
-        //                    mBottomed = true;
-        //                    mToped = false;
-        //                    UpdateStopPosition(true);
-        //                    PullBack();
-        //                    //return;
-        //                }
-        //                trans.gameObject.name = dataRenderedIdxDown + "";
-        //                scrollView.ItemChange(trans.gameObject, dataRenderedIdxDown);
-        //                if (dataRenderedIdxDown + 1 < dataSourceCount)
-        //                {
-        //                    mBottomed = false;
-        //                    mToped = false;
-        //                    dataRenderedIdxDown++;
-        //                    dataRenderedIdxUp++;
-        //                    //Debug.Log("==========dataRenderedIdxDown: " + dataRenderedIdxDown);
-        //                    //Debug.Log("==========dataRenderedIdxUp: " + dataRenderedIdxUp);
-        //                }
-        //            }
-        //            break;
-        //        }
-        //    }
-        //    else
-        //    {
-        //        if (localP.y < -viewSize.y * 0.5f + scrollView.Panel.clipOffset.y + scrollView.transform.localPosition.y)
-        //        {
-        //            if (dataRenderedIdxUp >= 0)
-        //            {
-        //                if (mToped) return;
-        //                Vector3 pos = renderedItems[0].transform.localPosition;
-        //                int renderedCount = renderedItems.Count;
-        //                GameObject item = renderedItems[renderedCount - 1];
-        //                renderedItems.RemoveAt(renderedCount - 1);
-        //                renderedItems.Insert(0, item);
-        //                Debug.Log("==========dataRenderedIdxUp: " + dataRenderedIdxUp);
-        //                trans.localPosition = pos + new Vector3(0, size + gap, 0);
-        //                if (dataRenderedIdxUp == 0)
-        //                {
-        //                    mToped = true;
-        //                    mBottomed = false;
-        //                    UpdateStopPosition(false);
-        //                    PullBack();
-        //                    // return;
-        //                }
-        //                trans.gameObject.name = dataRenderedIdxUp + "";
-        //                scrollView.ItemChange(trans.gameObject, dataRenderedIdxUp);
-        //                if (dataRenderedIdxUp - 1 >= 0)
-        //                {
-        //                    mToped = false;
-        //                    mBottomed = false;
-        //                    dataRenderedIdxDown--;
-        //                    dataRenderedIdxUp--;
-        //                    Debug.Log("==========dataRenderedIdxDown: " + dataRenderedIdxDown);
-        //                    Debug.Log("==========dataRenderedIdxUp: " + dataRenderedIdxUp);
-        //                }
-        //            }
-        //            break;
-        //        }
-        //    }
-        //}
     }
 
-    void OnFinish()
+    void OnFinish ()
     {
         mPullBack = false;
     }
 
-    GameObject NewItem(GameObject parent, Vector3 pos)
+    GameObject NewItem ( GameObject parent, Vector3 pos )
     {
         GameObject go = NGUITools.AddChild(parent, renderItemPrefab); ;
         go.transform.localScale = Vector3.one;
@@ -335,27 +281,40 @@ class Pool
     private List<GameObject> pool = new List<GameObject>();
     private GameObject cacheTemplate;
 
-    public void RegisterCache(GameObject tpl)
+    public void RegisterCache ( GameObject tpl )
     {
         cacheTemplate = tpl;
     }
 
-    public List<GameObject> Pop(int count = 1)
+    public GameObject Pop ()
+    {
+        if (pool.Count > 0)
+        {
+            GameObject ret = pool[0];
+            pool.RemoveAt(0);
+            return ret;
+        }
+        else return GameObject.Instantiate<GameObject>(cacheTemplate);
+    }
+
+    public List<GameObject> Pop ( int count )
     {
         List<GameObject> retList = new List<GameObject>();
-        for(int i = 0; i < pool.Count && count > 0; i++,count--)
-        {
-            retList.Add(pool[0]);
-            pool.RemoveAt(0);
-        }
-        for(int i = count; count > 0; i--)
-        {
-            retList.Add(GameObject.Instantiate<GameObject>(cacheTemplate));
-        }
+        if (pool.Count > 0) retList.Add(pool[0]);
+        else retList.Add(GameObject.Instantiate<GameObject>(cacheTemplate));
+        //for(int i = 0; i < pool.Count && count > 0; i++,count--)
+        //{
+        //    retList.Add(pool[0]);
+        //    pool.RemoveAt(0);
+        //}
+        //for(int i = count; count > 0; i--)
+        //{
+        //    retList.Add(GameObject.Instantiate<GameObject>(cacheTemplate));
+        //}
         return retList;
     }
 
-    public void Push(List<GameObject> items)
+    public void Push ( List<GameObject> items )
     {
         pool.AddRange(items);
     }
