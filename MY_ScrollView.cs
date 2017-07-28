@@ -5,6 +5,8 @@ public class MY_ScrollView : MonoBehaviour
 {
     [SerializeField]
     int momentumAmount = 100;
+    [SerializeField]
+    float k = 3.0f;
 
     public void Init(int dataSourceCount,int renderIndex = 0)
     {
@@ -43,7 +45,9 @@ public class MY_ScrollView : MonoBehaviour
                 Vector3 currentPos = ray.GetPoint(dist);
                 Vector3 offset = currentPos - mLastPos;
                 mLastPos = currentPos;
-                
+                if (offset.magnitude > 0.1f) offset = offset.normalized * 0.06f;
+               // Debug.Log("=============: " + offset.magnitude);
+
                 if (offset.y > 0) moveUpOrLeft = true;
                 else if (offset.y < 0) moveUpOrLeft = false;
 
@@ -72,13 +76,12 @@ public class MY_ScrollView : MonoBehaviour
         }
         else
         {
-            if (moveUpOrLeft && content.MaxIndex == content.DataSourceCount - 1)
+            if (moveUpOrLeft && content.MaxIndex == content.DataSourceCount)
             {
                 content.UpdateStopPosition();
                 content.PullBack();
                 return;
             }
-
             if (!moveUpOrLeft && content.MinIndex == 0)
             {
                 content.UpdateStopPosition(false);
@@ -89,6 +92,7 @@ public class MY_ScrollView : MonoBehaviour
             float now = Time.time;
             if (now - timePressed <= scrollTimeHold && (UICamera.currentTouch.pos - mLastTouchPos).sqrMagnitude > 0.1f)
             {
+                //Vector3 pos = content.trans.localPosition + new Vector3(moveUpOrLeft ? momentumAmount / k : -momentumAmount / k, moveUpOrLeft ? momentumAmount : -momentumAmount, 0);
                 Vector3 pos = content.trans.localPosition + new Vector3(0, moveUpOrLeft ? momentumAmount : -momentumAmount, 0);
                 pos.x = Mathf.Round(pos.x);
                 pos.y = Mathf.Round(pos.y);
@@ -110,6 +114,7 @@ public class MY_ScrollView : MonoBehaviour
         Vector3 a = content.trans.InverseTransformPoint(absolute);
         Vector3 b = content.trans.InverseTransformPoint(Vector3.zero);
         Vector3 relative = a - b;
+       // relative.x = relative.y / k;
         relative.x = 0;
         relative.z = 0;
         content.trans.localPosition += relative;

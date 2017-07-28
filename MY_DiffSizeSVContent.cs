@@ -26,10 +26,10 @@ public class MY_DiffSizeSVContent : MonoBehaviour, IMY_SVContent
     bool mStopPosCaled = false;
     bool mLastCalStopPosDirUp = false;
     bool fulled = false;
-    bool mBottomed = false;
-    bool mToped = true;
     bool pressed;
     Vector3 contentStartPos;
+
+    public float k = -5;
 
     List<GameObject> renderedItems = new List<GameObject>();
     Pool pool = new Pool();
@@ -117,22 +117,19 @@ public class MY_DiffSizeSVContent : MonoBehaviour, IMY_SVContent
             if (Mathf.Abs(nowPos) < scrollView.Panel.GetViewSize().y)
             {
                 fulled = false;
-                if (maxIndex < dataSourceCount)
+                if (ValidateMax())
                 {
-                    GameObject item = pool.Pop(); //NewItem(gameObject, new Vector3(0, nowPos, 0));
+                    GameObject item = pool.Pop(); 
                     item.transform.SetParent(transform);
                     item.transform.localScale = Vector3.one;
-                    item.transform.localPosition = new Vector3(0, nowPos, 0);
+                    item.transform.localPosition = new Vector3(k * maxIndex, nowPos, 0);
                     renderedItems.Add(item);
                     item.name = maxIndex.ToString();
                     scrollView.ItemChange(item, maxIndex);
-                    nowPos -= NGUIMath.CalculateRelativeWidgetBounds(transform, item.transform,true).size.y + gap;
-                    if (ValidateMax())
-                    {
-                        maxIndex++;
-                    }
-                    else return;
+                    nowPos -= NGUIMath.CalculateRelativeWidgetBounds(transform, item.transform, true).size.y + gap;
+                    maxIndex++;
                 }
+                else return;
             }
             else
             {
@@ -162,8 +159,7 @@ public class MY_DiffSizeSVContent : MonoBehaviour, IMY_SVContent
 
     public void UpdateStopPosition ( bool moveUpOrLeft = true )
     {
-        if (maxIndex != dataSourceCount - 1 && minIndex != 0) return;
-        // Debug.Log("AAAAAAAAAAAAAAAAAA: " + moveUpOrLeft);
+        if (maxIndex != dataSourceCount && minIndex != 0) return;
         if (!fulled) moveUpOrLeft = false;
         GameObject item = moveUpOrLeft
                           ? renderedItems[renderedItems.Count - 1]
@@ -181,12 +177,6 @@ public class MY_DiffSizeSVContent : MonoBehaviour, IMY_SVContent
         mStopPosCaled = true;
         mLastCalStopPosDirUp = moveUpOrLeft;
         mStopPos = pos;
-        //Debug.Log("======H======: " + H);
-        //Debug.Log("======h======: " + h);
-        //Debug.Log("======y======: " + y);
-        //Debug.Log("======deltaY======: " + deltaY);
-        //Debug.Log("======b.center.y======: " + b.center.y);
-        //Debug.Log("======mStopPos======: " + mStopPos);
     }
 
     void OnMoving ( bool moveUpOrLeft )
@@ -198,22 +188,26 @@ public class MY_DiffSizeSVContent : MonoBehaviour, IMY_SVContent
         int renderedCount = renderedItems.Count;
         if (movetum > 0)
         {
-            if (maxIndex == dataSourceCount - 1) return;
+            if (!ValidateMax()) return;
             GameObject lastItem = renderedItems[renderedCount - 1];
-            Bounds b = NGUIMath.CalculateRelativeWidgetBounds(transform, lastItem.transform,true);
+            Bounds b = NGUIMath.CalculateRelativeWidgetBounds(transform, lastItem.transform, true);
             if (lastItem.transform.localPosition.y + transform.localPosition.y >= scrollView.Panel.clipOffset.y - scrollView.ViewSize.y * 0.5f + b.size.y)
             {
-                Debug.Log("AAAAAAA: " + maxIndex);
                 if (ValidateMax())
                 {
                     GameObject item = pool.Pop();
                     item.transform.SetParent(transform);
-                    item.transform.localPosition = lastItem.transform.localPosition - new Vector3(0, b.size.y + gap, 0);
+                    item.transform.localScale = Vector3.one;
+                    item.transform.localPosition = lastItem.transform.localPosition - new Vector3(-k, b.size.y + gap, 0);
                     item.SetActive(true);
                     renderedItems.Add(item);
                     scrollView.ItemChange(item, maxIndex);
                     maxIndex++;
-                    Debug.Log("BBBBBBB: " + maxIndex);
+                    if(maxIndex == dataSourceCount)
+                    {
+                        UpdateStopPosition(true);
+                        PullBack();
+                    }
                 }
             }
 
@@ -221,22 +215,19 @@ public class MY_DiffSizeSVContent : MonoBehaviour, IMY_SVContent
             b = NGUIMath.CalculateRelativeWidgetBounds(transform, firstItem.transform, true);
             if (firstItem.transform.localPosition.y + transform.localPosition.y >= scrollView.Panel.clipOffset.y + scrollView.ViewSize.y * 0.5f + b.size.y)
             {
-                minIndex++;
                 pool.Push(new List<GameObject>() { firstItem });
                 firstItem.transform.SetParent(scrollView.transform);
                 firstItem.SetActive(false);
                 renderedItems.RemoveAt(0);
+                minIndex++;
             }
         }
         else if (movetum < 0)
         {
-            Debug.Log("=========: " + minIndex);
-            if (minIndex == 0) return;
+            if (!ValidateMin()) return;
             GameObject firstItem = renderedItems[0];
-            Debug.Log("firstItemName: " + firstItem.name);
-            if (firstItem.transform.localPosition.y + transform.localPosition.y <= scrollView.Panel.clipOffset.y + scrollView.ViewSize.y * 0.5f)
+            if (firstItem.transform.localPosition.y + transform.localPosition.y <= scrollView.Panel.clipOffset.y + scrollView.ViewSize.y * 0.5f - gap)
             {
-                Debug.Log("AAAAAAAAAAAAAAA");
                 if (ValidateMin())
                 {
                     minIndex--;
@@ -244,9 +235,15 @@ public class MY_DiffSizeSVContent : MonoBehaviour, IMY_SVContent
                     scrollView.ItemChange(item, minIndex);
                     Bounds b = NGUIMath.CalculateRelativeWidgetBounds(transform, item.transform, true);
                     item.transform.SetParent(transform);
-                    item.transform.localPosition = firstItem.transform.localPosition + new Vector3(0, b.size.y + gap, 0);
+                    item.transform.localScale = Vector3.one;
+                    item.transform.localPosition = firstItem.transform.localPosition + new Vector3(-k, b.size.y + gap, 0);
                     item.SetActive(true);
                     renderedItems.Insert(0, item);
+                    if (minIndex == 0)
+                    {
+                        UpdateStopPosition(false);
+                        PullBack();
+                    }
                 }
             }
 
@@ -260,19 +257,12 @@ public class MY_DiffSizeSVContent : MonoBehaviour, IMY_SVContent
                 renderedItems.RemoveAt(renderedCount - 1);
             }
         }
+        
     }
 
     void OnFinish ()
     {
         mPullBack = false;
-    }
-
-    GameObject NewItem ( GameObject parent, Vector3 pos )
-    {
-        GameObject go = NGUITools.AddChild(parent, renderItemPrefab); ;
-        go.transform.localScale = Vector3.one;
-        go.transform.localPosition = pos;
-        return go;
     }
 }
 
